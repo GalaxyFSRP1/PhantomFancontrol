@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><UseWindowsForms>true</UseWindowsForms><AssemblyName>PhantomFanControl</AssemblyName></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../PhantomFanControl.Core/PhantomFanControl.Core.csproj" /><ProjectReference Include="../PhantomFanControl.Hardware/PhantomFanControl.Hardware.csproj" /></ItemGroup>
+</Project>
