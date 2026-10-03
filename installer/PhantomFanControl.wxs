@@ -1,0 +1,9 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+ <Package Name="Phantom Fan Control" Manufacturer="Phantom" Version="1.0.0" UpgradeCode="4E64D785-7A39-46B4-92D2-4DB4B1FD564D" Scope="perMachine">
+  <MajorUpgrade DowngradeErrorMessage="A newer version of Phantom Fan Control is already installed." />
+  <MediaTemplate EmbedCab="yes" />
+  <StandardDirectory Id="ProgramFiles6432Folder"><Directory Id="INSTALLFOLDER" Name="Phantom Fan Control" /></StandardDirectory>
+  <Feature Id="MainFeature" Title="Phantom Fan Control" Level="1"><ComponentGroupRef Id="ApplicationFiles" /></Feature>
+ </Package>
+ <Fragment><ComponentGroup Id="ApplicationFiles" Directory="INSTALLFOLDER"><Files Include="$(var.PublishDir)\**" /></ComponentGroup></Fragment>
+</Wix>

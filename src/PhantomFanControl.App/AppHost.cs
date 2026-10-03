@@ -1,0 +1,19 @@
+using System.Collections.ObjectModel;
+using PhantomFanControl.Core;
+using PhantomFanControl.Hardware;
+namespace PhantomFanControl.App;
+public sealed class AppHost : IAsyncDisposable
+{
+    private readonly List<IHardwareProvider> _providers = [new LibreHardwareMonitorProvider(), new WmiSystemProvider()]; private readonly CancellationTokenSource _stop = new(); private Task? _loop;
+    public ObservableCollection<SensorReading> Sensors { get; } = []; public ObservableCollection<FanDevice> Fans { get; } = []; public ObservableCollection<HardwareNode> Devices { get; } = []; public ObservableCollection<Profile> Profiles { get; } = [];
+    public ProfileManager ProfileManager { get; private set; } = null!; public HardwareSnapshot Snapshot { get; private set; } = new([], [], [], DateTimeOffset.MinValue); public AppConfiguration Configuration { get; private set; } = new(); public JsonConfigurationStore Store { get; }
+    public IReadOnlyList<IHardwareProvider> Providers => _providers;
+    public AppHost() { var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PhantomFanControl"); Store = new(Path.Combine(appData, "configuration.json")); }
+    public async Task StartAsync() { Configuration = await Store.LoadAsync(); foreach (var p in Configuration.Profiles) Profiles.Add(p); ProfileManager = new ProfileManager(Profiles); _loop = PollAsync(_stop.Token); }
+    private async Task PollAsync(CancellationToken token) { while (!token.IsCancellationRequested) { try { var snapshots = await Task.WhenAll(_providers.Select(p => p.ScanAsync(token))); Snapshot = new(snapshots.SelectMany(s => s.Devices).ToArray(), snapshots.SelectMany(s => s.Sensors).ToArray(), snapshots.SelectMany(s => s.Fans).GroupBy(f => f.Id).Select(g => g.First()).ToArray(), DateTimeOffset.Now); Replace(Sensors, Snapshot.Sensors); Replace(Fans, Snapshot.Fans); Replace(Devices, Snapshot.Devices); await ApplySafetyAsync(token); } catch (OperationCanceledException) { } catch (Exception ex) { AppLog.Write("Hardware polling error: " + ex.Message); } await Task.Delay(Math.Clamp(Configuration.Settings.PollingMilliseconds, 250, 10000), token); } }
+    private async Task ApplySafetyAsync(CancellationToken token) { var decision = new SafetyManager(Configuration.Safety).Evaluate(Snapshot.Sensors); if (!decision.IsEmergency) return; AppLog.Write("EMERGENCY: " + decision.Reason); foreach (var fan in Snapshot.Fans.Where(f => f.IsControllable)) foreach (var provider in _providers) { try { await provider.SetFanAsync(fan.Id, 100, FanMode.ManualPwm, token); } catch (InvalidOperationException) { } } }
+    public async Task SetFanAsync(FanDevice fan, double percent) { if (!fan.IsControllable) throw new InvalidOperationException("This sensor is read-only; no provider reported a writable fan control."); if (percent < 20 && MessageBox.Show("Speeds below 20% may stall cooling. Continue?", "Safety warning", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return; foreach (var p in _providers) try { await p.SetFanAsync(fan.Id, percent, FanMode.ManualPwm, _stop.Token); } catch (InvalidOperationException) { } }
+    public async ValueTask DisposeAsync() { _stop.Cancel(); if (_loop is not null) try { await _loop; } catch (OperationCanceledException) { } foreach (var provider in _providers) await provider.DisposeAsync(); await Store.SaveAsync(Configuration); _stop.Dispose(); }
+    private static void Replace<T>(ObservableCollection<T> target, IEnumerable<T> source) { target.Clear(); foreach (var item in source) target.Add(item); }
+}
+public static class AppLog { public static void Write(string text) { var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PhantomFanControl", "logs"); Directory.CreateDirectory(dir); File.AppendAllText(Path.Combine(dir, "app.log"), $"{DateTimeOffset.Now:O} {text}{Environment.NewLine}"); } }
