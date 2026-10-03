@@ -33,6 +33,14 @@ Release/
 
 An MST is not generated because no transform is required for normal deployment. Enterprise administrators may apply their own transform to the MSI without affecting application behavior.
 
+## GitHub Actions release workflow
+
+The repository includes `.github/workflows/windows-release.yml`. Run **Actions → Build Windows release packages → Run workflow** to build the self-contained EXE installer, MSI, and portable ZIP on `windows-latest`; all three files are uploaded as workflow artifacts. Pushing a version tag such as `v1.0.0` also attaches them to a GitHub Release. The workflow installs .NET 8, WiX v4, and Inno Setup before restoring, testing, and running `scripts/build-all.ps1`.
+
+## Seeing every available temperature
+
+The **Live dashboard** contains an **All available temperatures** table and a second table for every other telemetry item that the providers return (fan RPM, controls, load, power, voltage). LibreHardwareMonitor supplies each live sensor with its source device ID and unit; an absent or unsupported sensor is not replaced with a synthetic value. Use **Hardware & sensors** to inspect the detected device hierarchy.
+
 ## Development and verification
 
 ```powershell

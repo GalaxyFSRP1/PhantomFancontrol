@@ -5,7 +5,25 @@ using PhantomFanControl.Core;
 namespace PhantomFanControl.App;
 public sealed class DashboardView : UserControl
 {
-    public DashboardView(AppHost host) { var panel = new StackPanel(); panel.Children.Add(new TextBlock { Text = "Live readings are provided only when a hardware provider reports them.", Foreground = System.Windows.Media.Brushes.LightGray, Margin = new Thickness(0, 0, 0, 12) }); var list = new ListView { ItemsSource = host.Sensors, DisplayMemberPath = "Name" }; panel.Children.Add(list); Content = panel; }
+    public DashboardView(AppHost host)
+    {
+        var layout = new Grid(); layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); layout.RowDefinitions.Add(new RowDefinition()); layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); layout.RowDefinitions.Add(new RowDefinition());
+        var notice = new TextBlock { Text = "All live temperatures and other values that LibreHardwareMonitor exposes are listed below. Values are never invented; unavailable hardware has no reading.", Foreground = System.Windows.Media.Brushes.LightGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 12) }; layout.Children.Add(notice);
+        var temperaturesTitle = new TextBlock { Text = "All available temperatures", FontSize = 17, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 8) }; Grid.SetRow(temperaturesTitle, 1); layout.Children.Add(temperaturesTitle);
+        var temperatures = CreateReadingsGrid(host, SensorKind.Temperature); Grid.SetRow(temperatures, 2); layout.Children.Add(temperatures);
+        var telemetryTitle = new TextBlock { Text = "All available telemetry (load, power, voltage, RPM and controls)", FontSize = 17, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 18, 0, 8) }; Grid.SetRow(telemetryTitle, 3); layout.Children.Add(telemetryTitle);
+        var allReadings = CreateReadingsGrid(host, null); Grid.SetRow(allReadings, 4); layout.Children.Add(allReadings); Content = layout;
+    }
+    private static DataGrid CreateReadingsGrid(AppHost host, SensorKind? kind)
+    {
+        var source = new System.Windows.Data.CollectionViewSource { Source = host.Sensors }.View; source.Filter = item => item is SensorReading sensor && (kind is null ? sensor.Kind != SensorKind.Temperature : sensor.Kind == kind);
+        var grid = new DataGrid { ItemsSource = source, IsReadOnly = true, AutoGenerateColumns = false, CanUserAddRows = false, HeadersVisibility = DataGridHeadersVisibility.Column, Background = System.Windows.Media.Brushes.Transparent, Foreground = System.Windows.Media.Brushes.White };
+        grid.Columns.Add(new DataGridTextColumn { Header = "Sensor", Binding = new System.Windows.Data.Binding(nameof(SensorReading.Name)), Width = new DataGridLength(2, DataGridLengthUnitType.Star) });
+        grid.Columns.Add(new DataGridTextColumn { Header = "Value", Binding = new System.Windows.Data.Binding(nameof(SensorReading.Value)) { StringFormat = "0.##" }, Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
+        grid.Columns.Add(new DataGridTextColumn { Header = "Unit", Binding = new System.Windows.Data.Binding(nameof(SensorReading.Unit)), Width = new DataGridLength(0.8, DataGridLengthUnitType.Star) });
+        grid.Columns.Add(new DataGridTextColumn { Header = "Device", Binding = new System.Windows.Data.Binding(nameof(SensorReading.DeviceId)), Width = new DataGridLength(2, DataGridLengthUnitType.Star) });
+        return grid;
+    }
 }
 public sealed class HardwareView : UserControl { public HardwareView(AppHost host) => Content = new TreeView { ItemsSource = host.Devices, DisplayMemberPath = "Name" }; }
 public sealed class CurveView : UserControl
